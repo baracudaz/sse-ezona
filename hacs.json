@@ -1,0 +1,12 @@
+{
+  "name": "Stredoslovenská energetika (SSE eZóna)",
+  "render_readme": true,
+  "zip_release": false,
+  "filename": "custom_components/sse_ezona",
+  "content_in_root": false,
+  "hacs": "1.0.0",
+  "hide_default_branch": false,
+  "country": [
+    "SK"
+  ]
+}

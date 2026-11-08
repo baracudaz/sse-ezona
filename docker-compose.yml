@@ -1,0 +1,13 @@
+---
+services:
+  homeassistant:
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    environment:
+      - TZ=Europe/Bratislava
+    volumes:
+      - ./.data/config:/config
+      - ./config/configuration.yaml:/config/configuration.yaml
+      - ./custom_components:/config/custom_components
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "8124:8123"

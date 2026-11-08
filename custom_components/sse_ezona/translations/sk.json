@@ -1,0 +1,17 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Prihlásenie do SSE eZóny",
+        "description": "Prihláste sa používateľským menom (e-mailom) a heslom k účtu SSE eZóna. Účty s prihlásením cez Google, Facebook alebo Apple, alebo s jednorazovým kódom, nie sú podporované.",
+        "data": {
+          "username": "Používateľské meno",
+          "password": "Heslo"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Tento účet je už nakonfigurovaný."
+    }
+  }
+}
