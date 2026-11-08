@@ -59,6 +59,11 @@ test-coverage:
 dev: format lint test
 
 docker-up:
+	@# Docker Desktop can't create the mount point for configuration.yaml
+	@# inside the /config bind mount, so the first start on a fresh checkout
+	@# would fail. Create it here; the file from config/ is mounted over it.
+	mkdir -p .data/config
+	touch .data/config/configuration.yaml
 	$(DOCKER_COMPOSE) up -d $(HA_SERVICE)
 
 docker-down:
