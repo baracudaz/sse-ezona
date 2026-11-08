@@ -1,59 +1,85 @@
-# SSE eZóna for Home Assistant
+# Integrácia SSE eZóna pre Home Assistant
 
-> **Work in progress** — this repository is a scaffold. The integration can be added and stores your credentials, but doesn't read anything from the portal yet.
+*English: a Home Assistant integration for SSE eZóna (ezona.sse.sk), the customer portal of Stredoslovenská energetika, providing tariff prices and billing data. User documentation is in Slovak; developer documentation is in English in [DEVELOPMENT.md](DEVELOPMENT.md).*
 
-A Home Assistant custom integration for the customer portal of Stredoslovenská energetika ([SSE eZóna](https://ezona.sse.sk)). It is meant for SSE electricity customers in any distribution region (SSD, ZSD or VSD).
+> **Vo vývoji** — integráciu už môžete pridať a uloží vaše prihlasovacie údaje, ale z portálu zatiaľ nič nenačítava.
 
-## Planned features
+Integrácia pre zákaznícky portál Stredoslovenskej energetiky [SSE eZóna](https://ezona.sse.sk). Je určená pre zákazníkov SSE odoberajúcich elektrinu v ktorejkoľvek distribučnej oblasti (SSD, ZSD alebo VSD).
 
-Per delivery point:
+## Funkcie
 
-- Current VT/NT price (EUR/kWh incl. VAT), or the single-rate price for single-tariff points
-- Balance: amount to pay / overpayment
-- Advance payment amount and frequency
-- Supply tariff (e.g. `DD5`)
-- Last invoice total and due date
+Plánované údaje pre každé odberné miesto:
 
-The price sensors are meant to feed the cost statistics of the [SSD IMS integration](https://github.com/baracudaz/ssd-ims) (see baracudaz/ssd-ims#33), or any other energy setup in Home Assistant.
+- **Aktuálna cena VT/NT** (EUR/kWh vrátane DPH), pri jednotarifnej sadzbe jedna cena JT
+- **Saldo**: suma na úhradu alebo preplatok
+- **Zálohová platba**: výška a frekvencia
+- **Sadzba dodávky** (napr. `DD5`)
+- **Posledná faktúra**: celková suma a dátum splatnosti
 
-## Installation
+Ceny môžu slúžiť na výpočet nákladov v [integrácii SSD IMS](https://github.com/baracudaz/ssd-ims) (pozri baracudaz/ssd-ims#33) alebo kdekoľvek inde v Home Assistante.
 
-### Method 1: Marketplace (Home Assistant 2026.11+)
+## Obmedzenia
 
-1. Go to **Settings → Marketplace** (accept the warning the first time you open it).
-2. Choose **Add from link** and enter `baracudaz/sse-ezona` (requires signing in with GitHub).
-3. Click **Install**, then **Install** again to confirm.
-4. The setup opens right away; if a restart is needed, a Repairs entry offers it.
+- Podporované sú len účty s prihlásením používateľským menom (e-mailom) a heslom. Prihlásenie cez Google, Facebook alebo Apple a účty s jednorazovým kódom (SMS/QR) podporované nie sú.
+- Koncové ceny, ktoré eZóna zobrazuje, nemusia zahŕňať adresnú energopomoc na rok 2026. Podrobnosti nájdete v issues.
+- Portál povoľuje na jeden účet len jedno prihlásenie naraz, takže prihlásenie z Home Assistantu vás môže odhlásiť z eZóny v prehliadači.
 
-Existing HACS installations migrate to the Marketplace on their own.
+## Inštalácia
 
-### Method 2: HACS (before Home Assistant 2026.11)
+### Spôsob 1: Marketplace (odporúčané, Home Assistant 2026.11 a novší)
 
-1. Open HACS, go to the menu (⋮) → **Custom repositories**.
-2. Add `https://github.com/baracudaz/sse-ezona` with category **Integration**.
-3. Search for "SSE eZóna", click **Download** and restart Home Assistant.
-4. Add the integration under **Settings → Devices & services**.
+Od verzie 2026.11 je HACS súčasťou Home Assistantu ako **Marketplace**. Integrácia zatiaľ nie je v jeho predvolenom katalógu, preto ju pridajte cez odkaz:
 
-### Method 3: Manual installation
+1. Otvorte **Nastavenia** → **Marketplace** (pri prvom otvorení potvrďte upozornenie)
+2. Zvoľte **Pridať z odkazu** a zadajte `https://github.com/baracudaz/sse-ezona` (vyžaduje pripojenie k GitHubu)
+3. Zvoľte **Inštalovať**, skontrolujte verziu a znova zvoľte **Inštalovať**
+4. Hneď sa otvorí nastavenie integrácie; ak Home Assistant potrebuje najprv reštart, ponúkne ho v časti **Opravy**
 
-1. Download this repository.
-2. Copy `custom_components/sse_ezona` to your Home Assistant `config/custom_components/` directory.
-3. Restart Home Assistant and add the integration under **Settings → Devices & services**.
+Ak ste integráciu nainštalovali cez HACS pred verziou 2026.11, nemusíte nič robiť: Marketplace prevezme správu od HACS a aktualizácie nájdete v časti **Nastavenia** → **Aktualizácie**.
 
-## Limitations
+### Spôsob 2: HACS (Home Assistant starší ako 2026.11)
 
-- Only accounts that sign in with username (e-mail) and password. Google, Facebook and Apple logins and accounts that require a one-time code (SMS/QR) aren't supported.
-- The final prices eZóna reports may not include the 2026 targeted energy aid (*adresná energopomoc*). See the issues for details.
+1. Otvorte HACS, v ponuke (⋮) zvoľte „Custom repositories“
+2. Pridajte `https://github.com/baracudaz/sse-ezona` s kategóriou „Integration“
+3. Vyhľadajte „Stredoslovenská energetika (SSE eZóna)“ a zvoľte „Download“
+4. Reštartujte Home Assistant
 
-## Development
+### Spôsob 3: Ručná inštalácia
 
-```bash
-make install   # create .venv and install requirements.txt
-make check     # ruff format --check + ruff check
-make test      # pytest
-make docker-up # Home Assistant in Docker on http://localhost:8124 with this integration mounted
+1. Stiahnite tento repozitár
+2. Skopírujte priečinok `custom_components/sse_ezona` do priečinka `config/custom_components/` vo vašom Home Assistante
+3. Reštartujte Home Assistant
+4. Pridajte integráciu (pozri [Nastavenie](#nastavenie))
+
+## Nastavenie
+
+1. Otvorte **Nastavenia** → **Zariadenia a služby**
+2. Zvoľte **Pridať integráciu**
+3. Vyhľadajte „Stredoslovenská energetika (SSE eZóna)“
+4. Zadajte používateľské meno (e-mail) a heslo k účtu SSE eZóna
+
+## Riešenie problémov
+
+### Podrobné protokolovanie
+
+Pri riešení problémov zapnite podrobné protokolovanie:
+
+```yaml
+# configuration.yaml
+logger:
+  default: info
+  logs:
+    custom_components.sse_ezona: debug
 ```
 
-## License
+## Autori
 
-AGPL-3.0, see [LICENSE](LICENSE).
+Spravuje [baracudaz](https://github.com/baracudaz).
+
+## Licencia
+
+Projekt je licencovaný pod AGPLv3 — podrobnosti v súbore [LICENSE](LICENSE).
+
+## Prispievanie
+
+Vývoj, testy a postup pri prispievaní sú popísané (v angličtine) v [DEVELOPMENT.md](DEVELOPMENT.md).
