@@ -2,26 +2,38 @@
 
 *English: a Home Assistant integration for SSE eZóna (ezona.sse.sk), the customer portal of Stredoslovenská energetika, providing tariff prices and billing data. User documentation is in Slovak; developer documentation is in English in [DEVELOPMENT.md](DEVELOPMENT.md).*
 
-> **Vo vývoji** — integráciu už môžete pridať a uloží vaše prihlasovacie údaje, ale z portálu zatiaľ nič nenačítava.
+> **Vo vývoji** — ceny zatiaľ nezahŕňajú adresnú energopomoc (pozri [#18](https://github.com/baracudaz/sse-ezona/issues/18)).
 
 Integrácia pre zákaznícky portál Stredoslovenskej energetiky [SSE eZóna](https://ezona.sse.sk). Je určená pre zákazníkov SSE odoberajúcich elektrinu v ktorejkoľvek distribučnej oblasti (SSD, ZSD alebo VSD).
 
 ## Funkcie
 
-Plánované údaje pre každé odberné miesto:
+Každé vybrané odberné miesto elektriny je v Home Assistante samostatné zariadenie s týmito snímačmi:
 
-- **Aktuálna cena VT/NT** (EUR/kWh vrátane DPH), pri jednotarifnej sadzbe jedna cena JT
-- **Saldo**: suma na úhradu alebo preplatok
-- **Zálohová platba**: výška a frekvencia
-- **Sadzba dodávky** (napr. `DD5`)
-- **Posledná faktúra**: celková suma a dátum splatnosti
+- **Koncová cena VT a NT** (EUR/kWh vrátane DPH), pri jednotarifnej sadzbe **Koncová cena JT**. Atribút `valid_from` hovorí, odkedy cena platí.
+- **Mesačná platba**: pevná mesačná platba za odberné miesto vrátane DPH
+- **Na úhradu**: aktuálna dlžná suma
+- **Výška zálohy**: atribút `frequency` hovorí, ako často sa platí
+- **Sadzba** (napr. `DD5`)
+- **Posledná faktúra**: celková suma s DPH, nedoplatok/preplatok (preplatok je záporný) a dátum splatnosti
+
+Údaje sa načítavajú raz denne.
+
+### Ako sa počíta koncová cena
+
+eZóna priamo neuvádza aktuálnu koncovú cenu. Integrácia ju skladá z dvoch častí:
+
+- **zmluvná cena silovej elektriny** z detailu odberného miesta — je vždy aktuálna,
+- **regulovaná časť** (distribúcia, straty, systémové poplatky, odvod do Národného jadrového fondu) z koncových cien na poslednej vyúčtovacej faktúre.
+
+Zmena ceny silovej elektriny sa tak prejaví nasledujúci deň; zmena regulovanej časti až s ďalšou faktúrou.
 
 Ceny môžu slúžiť na výpočet nákladov v [integrácii SSD IMS](https://github.com/baracudaz/ssd-ims) (pozri baracudaz/ssd-ims#33) alebo kdekoľvek inde v Home Assistante.
 
 ## Obmedzenia
 
 - Podporované sú len účty s prihlásením používateľským menom (e-mailom) a heslom. Prihlásenie cez Google, Facebook alebo Apple a účty s jednorazovým kódom (SMS/QR) podporované nie sú.
-- Koncové ceny, ktoré eZóna zobrazuje, nemusia zahŕňať adresnú energopomoc na rok 2026. Podrobnosti nájdete v issues.
+- Ceny zatiaľ nezahŕňajú adresnú energopomoc na rok 2026. Ak na ňu máte nárok, skutočne fakturovaná cena je nižšia o 31,24 €/MWh bez DPH. Pozri [#18](https://github.com/baracudaz/sse-ezona/issues/18).
 - Portál povoľuje na jeden účet len jedno prihlásenie naraz, takže prihlásenie z Home Assistantu vás môže odhlásiť z eZóny v prehliadači.
 
 ## Prečo táto integrácia
@@ -79,6 +91,11 @@ Ak ste integráciu nainštalovali cez HACS pred verziou 2026.11, nemusíte nič 
 2. Zvoľte **Pridať integráciu**
 3. Vyhľadajte „Stredoslovenská energetika (SSE eZóna)“
 4. Zadajte používateľské meno (e-mail) a heslo k účtu SSE eZóna
+5. Vyberte odberné miesta, ktoré chcete pridať (ak má účet len jedno, tento krok sa preskočí)
+
+Výber odberných miest môžete neskôr zmeniť v dialógu **Možnosti** pri položke vášho účtu v integrácii.
+
+Ak eZóna neskôr heslo odmietne (napríklad po jeho zmene), Home Assistant vás vyzve na opätovné prihlásenie.
 
 ## Riešenie problémov
 
