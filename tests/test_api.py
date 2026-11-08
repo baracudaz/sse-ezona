@@ -1,5 +1,8 @@
 """Tests for the eZóna API client against mocked portal responses."""
 
+import ssl
+from unittest.mock import patch
+
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -152,4 +155,19 @@ async def test_gateway_rejection_page(
 
     api = SseEzonaApi(async_get_clientsession(hass), "user@example.com", "pw")
     with pytest.raises(SseEzonaGatewayRejectedError):
+        await api.login()
+
+
+async def test_unloadable_ca_store_is_a_connection_error(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A broken CA store fails like an unreachable portal, not with a crash."""
+    api = SseEzonaApi(async_get_clientsession(hass), "user@example.com", "pw")
+    with (
+        patch(
+            "custom_components.sse_ezona.api._create_ssl_context",
+            side_effect=ssl.SSLError("no CA"),
+        ),
+        pytest.raises(SseEzonaConnectionError),
+    ):
         await api.login()

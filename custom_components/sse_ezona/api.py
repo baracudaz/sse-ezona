@@ -133,7 +133,12 @@ class SseEzonaApi:
         auth: bool = True,
     ) -> Any:
         if self._ssl_context is None:
-            self._ssl_context = await asyncio.to_thread(_create_ssl_context)
+            try:
+                self._ssl_context = await asyncio.to_thread(_create_ssl_context)
+            except (OSError, ssl.SSLError) as err:
+                raise SseEzonaConnectionError(
+                    f"Can't load the CA certificates: {err}"
+                ) from err
         headers = self._headers()
         if auth:
             if self._token is None:
