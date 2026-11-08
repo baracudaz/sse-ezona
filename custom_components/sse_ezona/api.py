@@ -289,6 +289,10 @@ class SseEzonaApi:
             f"delivery-point/v1/{delivery_point_id}/delivery-point-info"
         )
 
+    async def get_consumption(self, delivery_point_id: str) -> dict[str, Any]:
+        """Return the billed consumption per billing period of a delivery point."""
+        return await self.get(f"delivery-point/v1/{delivery_point_id}/consumption")
+
     async def get_balance(self, commodity_type: str) -> dict[str, Any]:
         """Return the account balance for a commodity (e.g. ``ELECTRICITY``)."""
         return await self.get(

@@ -1,5 +1,10 @@
 # Changelog
 
+## Version 0.4.0
+
+- **New feature**: Billed consumption VT/NT or JT (kWh) of the latest settlement period per delivery point, with the period as attributes, for comparing with meter register readings (#16)
+- **Maintenance**: `make docker-up` works on a fresh checkout
+
 ## Version 0.3.0
 
 - **New feature**: Prices include the 2026 targeted energy aid (31.24 €/MWh excl. VAT) for eligible delivery points. Eligibility comes from eZóna's `stateGrant.available` and can be set per point in the options; the amount can be overridden there too. New price attributes `energy_aid`, `price_without_aid`, `energy_aid_eligible` and `energy_aid_classified_on` (#18)

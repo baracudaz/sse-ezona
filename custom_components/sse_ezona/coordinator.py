@@ -40,6 +40,7 @@ from homeassistant.util import dt as dt_util
 from .api import (
     SseEzonaApi,
     SseEzonaAuthError,
+    SseEzonaConnectionError,
     SseEzonaError,
     SseEzonaUnsupportedLoginError,
 )
@@ -65,6 +66,10 @@ _LOGGER = logging.getLogger(__name__)
 
 PRICE_DECIMALS = 6
 
+# Bands of the consumption endpoint, as the price bands name them.
+CONSUMPTION_BANDS = {"highTariff": "VT", "lowTariff": "NT", "oneTariff": "JT"}
+ENERGY_UNIT_KWH = {"kwh": 1.0, "mwh": 1000.0}
+
 
 @dataclass
 class Invoice:
@@ -81,6 +86,16 @@ class Invoice:
     vat_rate: float
     end_prices: dict[str, float]
     monthly_fee: float | None
+
+
+@dataclass
+class BilledConsumption:
+    """The consumption billed for one settlement period, in kWh."""
+
+    period_from: date | None
+    period_to: date | None
+    bands: dict[str, float]
+    total: float | None
 
 
 @dataclass
@@ -120,6 +135,7 @@ class DeliveryPoint:
     # k"), not an expiry date.
     energy_aid_classified_on: date | None = None
     invoice: Invoice | None = None
+    billed_consumption: BilledConsumption | None = None
     prices: dict[str, Price] = field(default_factory=dict)
 
 
@@ -180,6 +196,43 @@ def parse_supply_prices(detail: dict[str, Any]) -> dict[str, float]:
         if band in PRICE_BANDS and value is not None:
             prices[band] = value
     return prices
+
+
+def _kwh(item: Any) -> float | None:
+    """Return an ``{"value", "unit"}`` energy amount in kWh."""
+    value = _float(_value(item, "value"))
+    factor = ENERGY_UNIT_KWH.get(str(_value(item, "unit") or "").lower())
+    if value is None or factor is None:
+        return None
+    return round(value * factor, 3)
+
+
+def parse_consumption(data: dict[str, Any] | None) -> BilledConsumption | None:
+    """Return the latest billed period from ``delivery-point/v1/{id}/consumption``.
+
+    Each period is one settlement: ``highTariff``/``lowTariff`` for two-rate
+    points, ``oneTariff`` for single rate.
+    """
+    periods = [
+        item
+        for item in (data or {}).get("consumption") or []
+        if isinstance(item, dict) and isinstance(item.get("electricity"), dict)
+    ]
+    if not periods:
+        return None
+    latest = max(periods, key=lambda item: str(item.get("periodTo") or ""))
+    electricity = latest["electricity"]
+    bands = {
+        band: kwh
+        for key, band in CONSUMPTION_BANDS.items()
+        if (kwh := _kwh(electricity.get(key))) is not None
+    }
+    return BilledConsumption(
+        period_from=_date(latest.get("periodFrom")),
+        period_to=_date(latest.get("periodTo")),
+        bands=bands,
+        total=_kwh(electricity.get("total")),
+    )
 
 
 def parse_energy_aid(detail: dict[str, Any]) -> tuple[bool | None, date | None]:
@@ -426,12 +479,13 @@ class SseEzonaCoordinator(DataUpdateCoordinator[AccountData]):
                 asyncio.gather(
                     api.get_delivery_point(raw["id"]),
                     api.get_delivery_point_info(raw["id"]),
+                    self._consumption(raw["id"]),
                 )
                 for raw in wanted
             )
         )
         points: dict[str, DeliveryPoint] = {}
-        for raw, (detail, point_info) in zip(wanted, fetched, strict=True):
+        for raw, (detail, point_info, consumption) in zip(wanted, fetched, strict=True):
             point_id = raw["id"]
             points[point_id] = DeliveryPoint(
                 id=point_id,
@@ -445,6 +499,7 @@ class SseEzonaCoordinator(DataUpdateCoordinator[AccountData]):
                 ),
                 advance_frequency=_value(point_info, "advancedPayment", "frequency"),
                 supply_prices=parse_supply_prices(detail),
+                billed_consumption=parse_consumption(consumption),
             )
             (
                 points[point_id].energy_aid_eligible,
@@ -456,6 +511,14 @@ class SseEzonaCoordinator(DataUpdateCoordinator[AccountData]):
             delivery_points=points,
             available={raw["id"]: point_label(raw) for raw in available},
         )
+
+    async def _consumption(self, point_id: str) -> dict[str, Any] | None:
+        """Fetch the billed consumption; without it, the rest still updates."""
+        try:
+            return await self.api.get_consumption(point_id)
+        except SseEzonaConnectionError as err:
+            _LOGGER.debug("No billed consumption: %s", err)
+            return None
 
     async def _attach_invoices(self, points: dict[str, DeliveryPoint]) -> None:
         """Give each delivery point its latest settlement invoice.
