@@ -8,10 +8,83 @@
           "username": "Používateľské meno",
           "password": "Heslo"
         }
+      },
+      "reauth_confirm": {
+        "title": "Znova sa prihláste do SSE eZóny",
+        "description": "eZóna odmietla heslo pre účet {username}. Zadajte aktuálne heslo.",
+        "data": {
+          "password": "Heslo"
+        }
+      },
+      "delivery_points": {
+        "title": "Odberné miesta",
+        "description": "Vyberte odberné miesta, ktoré chcete pridať. Výber môžete neskôr zmeniť v možnostiach integrácie.",
+        "data": {
+          "delivery_points": "Odberné miesta"
+        }
       }
     },
+    "error": {
+      "invalid_auth": "Nesprávne používateľské meno alebo heslo.",
+      "cannot_connect": "Nepodarilo sa spojiť s eZónou. Skúste to neskôr.",
+      "unsupported_login": "Tento účet vyžaduje pri prihlásení jednorazový kód, ktorý nie je podporovaný.",
+      "no_delivery_points": "Tento účet nemá žiadne odberné miesto elektriny.",
+      "no_selection": "Vyberte aspoň jedno odberné miesto."
+    },
     "abort": {
-      "already_configured": "Tento účet je už nakonfigurovaný."
+      "already_configured": "Tento účet je už nakonfigurovaný.",
+      "reauth_successful": "Heslo bolo aktualizované."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "price_vt": {
+        "name": "Koncová cena VT"
+      },
+      "price_nt": {
+        "name": "Koncová cena NT"
+      },
+      "price_jt": {
+        "name": "Koncová cena JT"
+      },
+      "monthly_fee": {
+        "name": "Mesačná platba"
+      },
+      "owed_amount": {
+        "name": "Na úhradu"
+      },
+      "advance_payment": {
+        "name": "Výška zálohy"
+      },
+      "tariff": {
+        "name": "Sadzba"
+      },
+      "last_invoice_total": {
+        "name": "Posledná faktúra – celková suma s DPH"
+      },
+      "last_invoice_balance": {
+        "name": "Posledná faktúra – nedoplatok/preplatok"
+      },
+      "last_invoice_due_date": {
+        "name": "Posledná faktúra – dátum splatnosti"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Odberné miesta",
+        "description": "Vyberte odberné miesta, ktoré chcete pridať. Výber môžete neskôr zmeniť v možnostiach integrácie.",
+        "data": {
+          "delivery_points": "Odberné miesta"
+        }
+      }
+    },
+    "error": {
+      "no_selection": "Vyberte aspoň jedno odberné miesto."
+    },
+    "abort": {
+      "not_loaded": "Integrácia nie je načítaná. Najprv vyriešte problém, ktorý pri nej Home Assistant zobrazuje."
     }
   }
 }

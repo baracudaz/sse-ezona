@@ -8,10 +8,83 @@
           "username": "Username",
           "password": "Password"
         }
+      },
+      "reauth_confirm": {
+        "title": "Sign in to SSE eZóna again",
+        "description": "eZóna rejected the password for {username}. Enter the current password.",
+        "data": {
+          "password": "Password"
+        }
+      },
+      "delivery_points": {
+        "title": "Delivery points",
+        "description": "Choose the delivery points to add. You can change this later in the integration's options.",
+        "data": {
+          "delivery_points": "Delivery points"
+        }
       }
     },
+    "error": {
+      "invalid_auth": "Wrong username or password.",
+      "cannot_connect": "Couldn't reach eZóna. Try again later.",
+      "unsupported_login": "This account needs a one-time code to sign in, which isn't supported.",
+      "no_delivery_points": "This account has no electricity delivery points.",
+      "no_selection": "Choose at least one delivery point."
+    },
     "abort": {
-      "already_configured": "This account is already configured."
+      "already_configured": "This account is already configured.",
+      "reauth_successful": "The password was updated."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "price_vt": {
+        "name": "End price VT"
+      },
+      "price_nt": {
+        "name": "End price NT"
+      },
+      "price_jt": {
+        "name": "End price JT"
+      },
+      "monthly_fee": {
+        "name": "Monthly fee"
+      },
+      "owed_amount": {
+        "name": "Amount due"
+      },
+      "advance_payment": {
+        "name": "Advance payment"
+      },
+      "tariff": {
+        "name": "Tariff"
+      },
+      "last_invoice_total": {
+        "name": "Last invoice total"
+      },
+      "last_invoice_balance": {
+        "name": "Last invoice balance"
+      },
+      "last_invoice_due_date": {
+        "name": "Last invoice due date"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Delivery points",
+        "description": "Choose the delivery points to add. You can change this later in the integration's options.",
+        "data": {
+          "delivery_points": "Delivery points"
+        }
+      }
+    },
+    "error": {
+      "no_selection": "Choose at least one delivery point."
+    },
+    "abort": {
+      "not_loaded": "The integration isn't loaded. Fix the problem shown for it first."
     }
   }
 }
