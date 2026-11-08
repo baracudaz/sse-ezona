@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import secrets
 import ssl
 import uuid
@@ -36,6 +37,7 @@ _LOGGER = logging.getLogger(__name__)
 GATEWAY_URL = "https://ezona-zds.sse.sk/sse-gw"
 AUTH_URL = f"{GATEWAY_URL}/auth/api/public"
 API_URL = f"{GATEWAY_URL}/api/public"
+GATEWAY_URL_PATH = urlsplit(GATEWAY_URL).path
 
 # Values the eZóna web app sends when starting a login.
 CLIENT_ID = "sseWebPortal"
@@ -46,6 +48,15 @@ REDIRECT_URI = "/"
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=30)
 WEB_ORIGIN = "https://ezona.sse.sk"
 USER_AGENT = "Mozilla/5.0"
+
+
+def _loggable_path(url: str) -> str:
+    """Return the URL path without IDs; IDs carry the EIC or invoice numbers.
+
+    The query and body are left out too: they may hold personal data.
+    """
+    path = urlsplit(url).path.removeprefix(GATEWAY_URL_PATH)
+    return re.sub(r"[^/]*\d{6,}[^/]*", "<id>", path)
 
 
 def _create_ssl_context() -> ssl.SSLContext:
@@ -140,6 +151,13 @@ class SseEzonaApi:
                 allow_redirects=False,
             ) as resp:
                 body = await resp.text()
+                if resp.status >= 300:
+                    _LOGGER.debug(
+                        "%s %s answered HTTP %s",
+                        method,
+                        _loggable_path(url),
+                        resp.status,
+                    )
                 # The firewall's rejection page comes with HTTP 200 (or 403) and
                 # says nothing about the credentials, so check it first. Long
                 # date ranges trigger it too.
@@ -255,6 +273,10 @@ class SseEzonaApi:
     async def get_user_info(self) -> dict[str, Any]:
         """Return the user info including ``deliveryPoints``."""
         return await self.get("user/v1/info")
+
+    async def get_delivery_point(self, delivery_point_id: str) -> dict[str, Any]:
+        """Return the delivery point detail incl. the contract supply price."""
+        return await self.get(f"delivery-point/v1/{delivery_point_id}")
 
     async def get_delivery_point_info(self, delivery_point_id: str) -> dict[str, Any]:
         """Return tariff, advance payment and owed amount of a delivery point."""
