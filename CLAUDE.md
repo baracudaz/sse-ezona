@@ -21,6 +21,10 @@ make docker-up # Home Assistant in Docker on port 8124 (ssd-ims uses 8123)
 
 `requirements.txt` is the single, pinned source of truth for dev/test dependencies; there is no `pyproject.toml`.
 
+The test harness is `pytest-homeassistant` (published by Home Assistant core, same version as `homeassistant`; bump both together). It loads itself, so `tests/conftest.py` has no `pytest_plugins`, and `pytest.ini` must keep `addopts = -p no:respx` — without it every test fails with "httpx was already imported". The discontinued `pytest-homeassistant-custom-component` must not be installed alongside it.
+
+`make docker-restart` keeps the cached `stable` image; to get a new Home Assistant release run `docker compose pull homeassistant && docker compose up -d homeassistant`.
+
 ## Portal API (from browser inspection)
 
 - API base `https://ezona-zds.sse.sk/sse-gw/api/public/`, header `Authorization: Bearer <token>`.
@@ -34,4 +38,5 @@ make docker-up # Home Assistant in Docker on port 8124 (ssd-ims uses 8123)
 - Python 3.14+ for development (pinned `homeassistant`); ruff for lint/format.
 - Diagnostics must redact credentials, delivery point IDs, EIC, variable symbols, names and addresses.
 - Fetch at most once a day — prices and billing data change rarely.
+- Documentation: `README.md` is the user documentation in Slovak (the Marketplace/HACS render only `README.md`); `DEVELOPMENT.md` is the developer documentation in English. User-facing changes must update the Slovak README. Menu names in it must match the Slovak Home Assistant UI exactly (check `hass_frontend/static/translations/**/sk-*.json`); keep entity/statistic IDs, code terms and YAML unchanged. Have the user (a native speaker) proofread Slovak text. Everything else — CHANGELOG, issue templates, commits, PRs, code, this file — stays in English.
 - `CHANGELOG.md` is maintained by hand per release under `## Version X.Y.Z` with bolded change-type prefixes (`**New feature**`, `**Bug fix**`, `**Internal**`, `**Docs**`, `**Maintenance**`). Bump `manifest.json` `"version"` alongside.
