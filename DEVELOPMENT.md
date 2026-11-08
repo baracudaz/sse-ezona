@@ -27,6 +27,8 @@ make docker-logs
 
 The container uses the `stable` Home Assistant image. `make docker-restart` keeps the image that is already downloaded; to move to a new Home Assistant release, run `docker compose pull homeassistant && docker compose up -d homeassistant`.
 
+Home Assistant keeps its state in `.data/config`. On a fresh checkout Docker Desktop can't create the mount point for `config/configuration.yaml` inside it, so `make docker-up` creates `.data/config/configuration.yaml` first. If you run `docker compose up` directly, run `mkdir -p .data/config && touch .data/config/configuration.yaml` before it.
+
 ## Tests and linting
 
 ```bash
