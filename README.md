@@ -10,7 +10,7 @@ Integrácia pre zákaznícky portál Stredoslovenskej energetiky [SSE eZóna](ht
 
 Každé vybrané odberné miesto elektriny je v Home Assistante samostatné zariadenie s týmito snímačmi:
 
-- **Koncová cena VT a NT** (EUR/kWh vrátane DPH), pri jednotarifnej sadzbe **Koncová cena JT**. Atribút `valid_from` hovorí, odkedy cena platí.
+- **Koncová cena VT a NT** (EUR/kWh vrátane DPH), pri jednotarifnej sadzbe **Koncová cena JT**. Atribút `valid_from` hovorí, odkedy cena platí; kým integrácia nezaznamená prvú zmenu ceny, je prázdny.
 - **Mesačná platba**: pevná mesačná platba za odberné miesto vrátane DPH
 - **Na úhradu**: aktuálna dlžná suma
 - **Výška zálohy**: atribút `frequency` hovorí, ako často sa platí
@@ -40,7 +40,7 @@ Ceny môžu slúžiť na výpočet nákladov v [integrácii SSD IMS](https://git
 
 Pre SSE už existujú dve komunitné integrácie (pozri [Podobné projekty](#podobné-projekty)). Obe sa sústreďujú na spotrebu z eZóny. Táto integrácia dopĺňa to, čo vie len dodávateľ:
 
-- **Skutočne fakturovaná cena**: koncová cena VT/NT (alebo JT), ktorú SSE fakturuje, vrátane adresnej energopomoci — nie zmluvná cena silovej elektriny ani cena bez energopomoci.
+- **Koncová cena, nie len cena silovej elektriny**: koncová cena VT/NT (alebo JT) vrátane distribúcie, regulovaných poplatkov a DPH. Adresnú energopomoc zatiaľ nezahŕňa; jej započítanie je plánované v [#18](https://github.com/baracudaz/sse-ezona/issues/18).
 - **Ceny ako zdroj pre výpočet nákladov**: cenové senzory sú určené na výpočet hodinových nákladov v [integrácii SSD IMS](https://github.com/baracudaz/ssd-ims) alebo kdekoľvek inde v Home Assistante; Home Assistant si uchováva ich históriu, takže zmena ceny platí od hodiny, keď nastala.
 - **Všetky odberné miesta účtu** v jednom nastavení.
 - **Spotrebu neduplikuje**: priebeh spotreby pochádza od distribútora (pre oblasť SSD integrácia SSD IMS). Funguje teda aj vtedy, keď eZóna profilové údaje nesprístupňuje, a nezávisí od toho, kto je váš dodávateľ.
