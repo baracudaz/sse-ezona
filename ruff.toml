@@ -1,0 +1,3 @@
+# The Home Assistant guide for Copilot keeps its examples as written,
+# including the deliberately wrong ones; ruff 0.17 formats Markdown.
+extend-exclude = [".github/copilot-instructions.md"]
