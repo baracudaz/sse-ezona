@@ -13,6 +13,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
+from homeassistant.const import UnitOfEnergy
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -147,6 +148,33 @@ def _price_description(band: str) -> PointSensorDescription:
     )
 
 
+def _billed_consumption_description(band: str) -> PointSensorDescription:
+    """The kWh billed in the latest settlement period, for comparing with the
+    meter's register readings. Not a meter: no state class, so it stays out of
+    the energy dashboard and long-term statistics."""
+
+    def value(point: DeliveryPoint) -> float | None:
+        billed = point.billed_consumption
+        return billed.bands.get(band) if billed else None
+
+    def attrs(point: DeliveryPoint) -> dict[str, Any]:
+        billed = point.billed_consumption
+        return {
+            "period_from": billed.period_from if billed else None,
+            "period_to": billed.period_to if billed else None,
+        }
+
+    return PointSensorDescription(
+        key=f"billed_consumption_{band.lower()}",
+        translation_key=f"billed_consumption_{band.lower()}",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=0,
+        value_fn=value,
+        attrs_fn=attrs,
+    )
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: SseEzonaConfigEntry,
@@ -158,7 +186,10 @@ async def async_setup_entry(
     for point in coordinator.data.delivery_points.values():
         # The contract decides the bands: VT and NT, or JT for single rate.
         bands = [band for band in PRICE_BANDS if band in point.supply_prices]
-        descriptions = [_price_description(band) for band in bands]
+        descriptions = [
+            *(_price_description(band) for band in bands),
+            *(_billed_consumption_description(band) for band in bands),
+        ]
         entities.extend(
             PointSensor(coordinator, point, description)
             for description in (*descriptions, *POINT_SENSORS)

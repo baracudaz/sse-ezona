@@ -41,6 +41,9 @@ async def async_get_config_entry_diagnostics(
             "energy_aid_eligible": point.energy_aid_eligible,
             "energy_aid_classified_on": point.energy_aid_classified_on,
             "invoice": invoice,
+            "billed_consumption": (
+                asdict(point.billed_consumption) if point.billed_consumption else None
+            ),
             "prices": {
                 band: {k: v for k, v in asdict(price).items() if k != "invoice_id"}
                 for band, price in point.prices.items()

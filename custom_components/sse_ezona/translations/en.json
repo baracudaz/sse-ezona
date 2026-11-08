@@ -67,6 +67,15 @@
       },
       "last_invoice_due_date": {
         "name": "Last invoice due date"
+      },
+      "billed_consumption_vt": {
+        "name": "Billed consumption VT"
+      },
+      "billed_consumption_nt": {
+        "name": "Billed consumption NT"
+      },
+      "billed_consumption_jt": {
+        "name": "Billed consumption JT"
       }
     }
   },

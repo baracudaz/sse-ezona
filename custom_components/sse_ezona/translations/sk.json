@@ -67,6 +67,15 @@
       },
       "last_invoice_due_date": {
         "name": "Posledná faktúra – dátum splatnosti"
+      },
+      "billed_consumption_vt": {
+        "name": "Fakturovaná spotreba VT"
+      },
+      "billed_consumption_nt": {
+        "name": "Fakturovaná spotreba NT"
+      },
+      "billed_consumption_jt": {
+        "name": "Fakturovaná spotreba JT"
       }
     }
   },

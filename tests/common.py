@@ -77,6 +77,34 @@ POINT_INFO = {
     },
 }
 
+
+def _period(start: str, end: str, **bands: float) -> dict[str, Any]:
+    return {
+        "periodFrom": start,
+        "periodTo": end,
+        "electricity": {
+            **{key: {"value": value, "unit": "MWh"} for key, value in bands.items()},
+            "total": {"value": round(sum(bands.values()), 3), "unit": "MWh"},
+        },
+        "fees": {"totalSum": {"value": 100.0, "currency": "EUR"}},
+    }
+
+
+CONSUMPTION = {
+    POINT_TWO_RATE: {
+        "id": POINT_TWO_RATE,
+        "consumption": [
+            # Not sorted, as nothing promises it.
+            _period("2025-05-17", "2026-05-20", highTariff=1.234, lowTariff=2.5),
+            _period("2024-05-14", "2025-05-16", highTariff=1.0, lowTariff=2.0),
+        ],
+    },
+    POINT_SINGLE_RATE: {
+        "id": POINT_SINGLE_RATE,
+        "consumption": [_period("2025-03-01", "2026-02-28", oneTariff=0.842)],
+    },
+}
+
 BALANCE = {"outstanding": {"value": 12.5}, "excess": {"value": 0.0}}
 
 INVOICES = {
@@ -180,6 +208,8 @@ class FakeApi:
         self.invoice_windows: list[tuple[str, str]] = []
         self.fail: Exception | None = None
         self.invoice_requests: list[str] = []
+        self.consumption = copy.deepcopy(CONSUMPTION)
+        self.consumption_fail: Exception | None = None
         self.logins = 0
 
     @asynccontextmanager
@@ -197,6 +227,11 @@ class FakeApi:
 
     async def get_delivery_point_info(self, point_id: str) -> dict[str, Any]:
         return copy.deepcopy(POINT_INFO[point_id])
+
+    async def get_consumption(self, point_id: str) -> dict[str, Any]:
+        if self.consumption_fail is not None:
+            raise self.consumption_fail
+        return copy.deepcopy(self.consumption[point_id])
 
     async def get_balance(self, commodity: str) -> dict[str, Any]:
         return copy.deepcopy(BALANCE)
