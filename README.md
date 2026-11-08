@@ -2,7 +2,7 @@
 
 *English: a Home Assistant integration for SSE eZóna (ezona.sse.sk), the customer portal of Stredoslovenská energetika, providing tariff prices and billing data. User documentation is in Slovak; developer documentation is in English in [DEVELOPMENT.md](DEVELOPMENT.md).*
 
-> **Vo vývoji** — ceny zatiaľ nezahŕňajú adresnú energopomoc (pozri [#18](https://github.com/baracudaz/sse-ezona/issues/18)).
+> **Vo vývoji**
 
 Integrácia pre zákaznícky portál Stredoslovenskej energetiky [SSE eZóna](https://ezona.sse.sk). Je určená pre zákazníkov SSE odoberajúcich elektrinu v ktorejkoľvek distribučnej oblasti (SSD, ZSD alebo VSD).
 
@@ -28,19 +28,27 @@ eZóna priamo neuvádza aktuálnu koncovú cenu. Integrácia ju skladá z dvoch 
 
 Zmena ceny silovej elektriny sa tak prejaví nasledujúci deň; zmena regulovanej časti až s ďalšou faktúrou.
 
+### Adresná energopomoc
+
+Ceny v eZóne nezahŕňajú adresnú energopomoc. Ak na ňu odberné miesto má nárok, integrácia ju od ceny silovej elektriny odpočíta, takže koncová cena zodpovedá skutočne fakturovanej cene. V roku 2026 je energopomoc 31,24 €/MWh bez DPH pre všetky sadzby (zákon č. 260/2025 Z. z.).
+
+- Nárok sa predvolene preberá z údaja „Nárok na adresnú energopomoc“ v eZóne. Po kliknutí na **Konfigurovať** pri vašom účte ho môžete pre každé odberné miesto nastaviť ručne (*Automaticky*, *Uplatniť*, *Neuplatniť*).
+- Výšku energopomoci eZóna neuvádza, integrácia ju má zabudovanú pre každý rok. Ak sa zmení skôr, ako vyjde nová verzia integrácie, zadajte ju v časti **Rozšírené** toho istého dialógu.
+- Pre rok, ktorého výšku integrácia nepozná, sa energopomoc neodpočíta a v logu sa objaví upozornenie.
+- Atribúty cenových snímačov ukazujú, čo sa odpočítalo: `energy_aid` (€/MWh bez DPH), `price_without_aid` (cena bez energopomoci), `energy_aid_eligible` (nárok podľa eZóny) a `energy_aid_classified_on` (dátum zaradenia).
+
 Ceny môžu slúžiť na výpočet nákladov v [integrácii SSD IMS](https://github.com/baracudaz/ssd-ims) (pozri baracudaz/ssd-ims#33) alebo kdekoľvek inde v Home Assistante.
 
 ## Obmedzenia
 
 - Podporované sú len účty s prihlásením používateľským menom (e-mailom) a heslom. Prihlásenie cez Google, Facebook alebo Apple a účty s jednorazovým kódom (SMS/QR) podporované nie sú.
-- Ceny zatiaľ nezahŕňajú adresnú energopomoc na rok 2026. Ak na ňu máte nárok, skutočne fakturovaná cena je nižšia o 31,24 €/MWh bez DPH. Pozri [#18](https://github.com/baracudaz/sse-ezona/issues/18).
 - Portál povoľuje na jeden účet len jedno prihlásenie naraz, takže prihlásenie z Home Assistantu vás môže odhlásiť z eZóny v prehliadači.
 
 ## Prečo táto integrácia
 
 Pre SSE už existujú dve komunitné integrácie (pozri [Podobné projekty](#podobné-projekty)). Obe sa sústreďujú na spotrebu z eZóny. Táto integrácia dopĺňa to, čo vie len dodávateľ:
 
-- **Koncová cena, nie len cena silovej elektriny**: koncová cena VT/NT (alebo JT) vrátane distribúcie, regulovaných poplatkov a DPH. Adresnú energopomoc zatiaľ nezahŕňa; jej započítanie je plánované v [#18](https://github.com/baracudaz/sse-ezona/issues/18).
+- **Koncová cena, nie len cena silovej elektriny**: koncová cena VT/NT (alebo JT) vrátane distribúcie, regulovaných poplatkov a DPH, po odpočítaní adresnej energopomoci, ak na ňu máte nárok.
 - **Ceny ako zdroj pre výpočet nákladov**: cenové senzory sú určené na výpočet hodinových nákladov v [integrácii SSD IMS](https://github.com/baracudaz/ssd-ims) alebo kdekoľvek inde v Home Assistante; Home Assistant si uchováva ich históriu, takže zmena ceny platí od hodiny, keď nastala.
 - **Všetky odberné miesta účtu** v jednom nastavení.
 - **Spotrebu neduplikuje**: priebeh spotreby pochádza od distribútora (pre oblasť SSD integrácia SSD IMS). Funguje teda aj vtedy, keď eZóna profilové údaje nesprístupňuje, a nezávisí od toho, kto je váš dodávateľ.
@@ -93,7 +101,7 @@ Ak ste integráciu nainštalovali cez HACS pred verziou 2026.11, nemusíte nič 
 4. Zadajte používateľské meno (e-mail) a heslo k účtu SSE eZóna
 5. Vyberte odberné miesta, ktoré chcete pridať (ak má účet len jedno, tento krok sa preskočí)
 
-Výber odberných miest môžete neskôr zmeniť v dialógu **Možnosti** pri položke vášho účtu v integrácii.
+Výber odberných miest a nárok na energopomoc môžete neskôr zmeniť tlačidlom **Konfigurovať** pri položke vášho účtu v integrácii.
 
 Ak eZóna neskôr heslo odmietne (napríklad po jeho zmene), Home Assistant vás vyzve na opätovné prihlásenie.
 
