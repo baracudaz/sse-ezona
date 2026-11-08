@@ -19,6 +19,9 @@ UPDATE_INTERVAL = timedelta(hours=24)
 # Settlement invoices are issued yearly, so look back a little over a year to
 # always see the latest one. The gateway accepts this range for invoices.
 INVOICE_LOOKBACK = timedelta(days=400)
+# Earlier windows to try when a point has no settlement in the latest one,
+# e.g. after a longer billing period.
+INVOICE_LOOKBACK_WINDOWS = 3
 
 # Used when an invoice doesn't give a usable VAT ratio.
 DEFAULT_VAT_RATE = 0.19

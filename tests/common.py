@@ -176,6 +176,8 @@ class FakeApi:
         """Copy the data so a test can change it."""
         self.details = copy.deepcopy(DETAILS)
         self.invoice_details = copy.deepcopy(INVOICE_DETAILS)
+        self.invoices = copy.deepcopy(INVOICES)
+        self.invoice_windows: list[tuple[str, str]] = []
         self.fail: Exception | None = None
         self.invoice_requests: list[str] = []
         self.logins = 0
@@ -200,7 +202,14 @@ class FakeApi:
         return copy.deepcopy(BALANCE)
 
     async def get_invoices(self, commodity: str, period_from: str, period_to: str):
-        return copy.deepcopy(INVOICES)
+        self.invoice_windows.append((period_from, period_to))
+        listing = copy.deepcopy(self.invoices)
+        listing["invoices"] = [
+            item
+            for item in listing["invoices"]
+            if period_from <= item.get("issueDate", period_to) <= period_to
+        ]
+        return listing
 
     async def get_invoice(self, invoice_id: str) -> dict[str, Any]:
         self.invoice_requests.append(invoice_id)

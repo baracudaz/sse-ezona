@@ -47,13 +47,11 @@ def _money(key: str, **kwargs: Any) -> dict[str, Any]:
 
 def _invoice_attrs(point: DeliveryPoint) -> dict[str, Any]:
     invoice = point.invoice
-    if invoice is None:
-        return {}
     return {
-        "issue_date": invoice.issue_date,
-        "period_from": invoice.period_from,
-        "period_to": invoice.period_to,
-        "paid": invoice.paid,
+        "issue_date": invoice.issue_date if invoice else None,
+        "period_from": invoice.period_from if invoice else None,
+        "period_to": invoice.period_to if invoice else None,
+        "paid": invoice.paid if invoice else None,
     }
 
 
@@ -106,9 +104,11 @@ def _price_description(band: str) -> PointSensorDescription:
     def attrs(point: DeliveryPoint) -> dict[str, Any]:
         price = point.prices.get(band)
         if price is None:
-            return {}
+            return dict.fromkeys(
+                ("valid_from", "supply_price", "regulated_price", "vat_rate")
+            )
         return {
-            "valid_from": price.valid_from.isoformat(),
+            "valid_from": price.valid_from.isoformat() if price.valid_from else None,
             "supply_price": round(price.supply, 4),
             "regulated_price": round(price.regulated, 4),
             "vat_rate": price.vat_rate,

@@ -22,9 +22,10 @@ are what eZóna shows, without the aid.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -46,6 +47,7 @@ from .const import (
     DEFAULT_VAT_RATE,
     DOMAIN,
     INVOICE_LOOKBACK,
+    INVOICE_LOOKBACK_WINDOWS,
     MONTHLY_FEE_PRICE_NAME,
     PRICE_BANDS,
     STORAGE_VERSION,
@@ -79,11 +81,12 @@ class Price:
     """The end price of one band, incl. VAT."""
 
     value: float
-    valid_from: datetime
+    # When the price took effect; ``None`` until a change has been observed.
+    valid_from: datetime | None
     supply: float
     regulated: float
     vat_rate: float
-    invoice_id: str
+    invoice_id: str | None
 
 
 @dataclass
@@ -178,11 +181,24 @@ def parse_invoice(invoice_id: str, detail: dict[str, Any], point_id: str) -> Inv
         if amount.get("balanceType") == "EXCESS_PAYMENTS":
             balance = -balance
 
+    total = _float(amount.get("amountWithVat"))
+    points = detail.get("deliveryPoints") or []
     end_prices: dict[str, float] = {}
     monthly_fee = None
-    for point in detail.get("deliveryPoints") or []:
+    for point in points:
         if point.get("id") != point_id:
             continue
+        if len(points) > 1:
+            # A shared invoice: the amounts above are for all its points.
+            # Each point has its own amount excl. VAT; the balance after
+            # advance payments exists only for the whole invoice.
+            point_amount = _float(_value(point, "consumption", "amountWithoutVat"))
+            total = (
+                round(point_amount * (1 + vat_rate), 2)
+                if point_amount is not None
+                else None
+            )
+            balance = None
         for item in point.get("endPrices") or []:
             name = str(item.get("priceName") or "").strip()
             value = _float(item.get("priceValue"))
@@ -199,7 +215,7 @@ def parse_invoice(invoice_id: str, detail: dict[str, Any], point_id: str) -> Inv
         due_date=_date(detail.get("dueDate")),
         period_from=_date(detail.get("dateFrom")),
         period_to=_date(detail.get("dateTo")),
-        total=_float(amount.get("amountWithVat")),
+        total=total,
         balance=balance,
         paid=detail.get("paid"),
         vat_rate=vat_rate,
@@ -213,47 +229,59 @@ def compute_prices(
 ) -> dict[str, Any]:
     """Set ``point.prices`` and return the updated stored state of the point.
 
-    ``stored`` holds the regulated part per band for the invoice it was taken
-    from, and the last published price per band with the time it took effect.
+    ``stored`` holds the regulated part per band with the invoice and VAT
+    rate it was taken from, and the last published price per band with the
+    time it took effect.
+
+    The regulated part is ``endPrice / (1 + VAT) − supply``, using the supply
+    price when the invoice is first seen. eZóna has no supply price as of the
+    invoice date, so if the supply price changed between the invoice and the
+    first time it is seen (e.g. on a fresh install), the regulated part
+    absorbs that difference until the next invoice.
     """
+    stored = dict(stored)
+    regulated: dict[str, float] = dict(stored.get("regulated") or {})
     invoice = point.invoice
-    if invoice is None or not invoice.end_prices:
-        point.prices = {}
-        return stored
+    if invoice is not None and invoice.end_prices:
+        if stored.get("invoice_id") != invoice.id:
+            regulated = {}
+            stored["invoice_id"] = invoice.id
+        stored["vat_rate"] = invoice.vat_rate
+        # Also fills bands whose supply price was missing on an earlier day.
+        for band, end_price in invoice.end_prices.items():
+            supply = point.supply_prices.get(band)
+            if band not in regulated and supply is not None:
+                regulated[band] = end_price * 1000 / (1 + invoice.vat_rate) - supply
+        stored["regulated"] = regulated
+    # Without a usable invoice, keep building on the stored regulated part.
+    vat_rate = stored.get("vat_rate", DEFAULT_VAT_RATE)
 
-    if stored.get("invoice_id") != invoice.id:
-        regulated = {
-            band: end_price * 1000 / (1 + invoice.vat_rate) - point.supply_prices[band]
-            for band, end_price in invoice.end_prices.items()
-            if band in point.supply_prices
-        }
-        stored = {
-            "invoice_id": invoice.id,
-            "regulated": regulated,
-            "prices": stored.get("prices", {}),
-        }
-
-    published: dict[str, Any] = dict(stored.get("prices", {}))
+    published: dict[str, Any] = dict(stored.get("prices") or {})
     point.prices = {}
-    for band, regulated in stored["regulated"].items():
+    for band, regulated_part in regulated.items():
         supply = point.supply_prices.get(band)
         if supply is None:
             continue
-        value = round(
-            (supply + regulated) * (1 + invoice.vat_rate) / 1000, PRICE_DECIMALS
-        )
-        previous = published.get(band) or {}
-        valid_from = dt_util.parse_datetime(previous.get("valid_from") or "")
-        if previous.get("value") != value or valid_from is None:
+        value = round((supply + regulated_part) * (1 + vat_rate) / 1000, PRICE_DECIMALS)
+        previous = published.get(band)
+        if previous is None:
+            # First sighting: when this price took effect is unknown.
+            valid_from = None
+        elif previous.get("value") != value:
             valid_from = now
-            published[band] = {"value": value, "valid_from": now.isoformat()}
+        else:
+            valid_from = dt_util.parse_datetime(previous.get("valid_from") or "")
+        published[band] = {
+            "value": value,
+            "valid_from": valid_from.isoformat() if valid_from else None,
+        }
         point.prices[band] = Price(
             value=value,
             valid_from=valid_from,
             supply=supply,
-            regulated=regulated,
-            vat_rate=invoice.vat_rate,
-            invoice_id=invoice.id,
+            regulated=regulated_part,
+            vat_rate=vat_rate,
+            invoice_id=stored.get("invoice_id"),
         )
     stored["prices"] = published
     return stored
@@ -308,13 +336,20 @@ class SseEzonaCoordinator(DataUpdateCoordinator[AccountData]):
         info = await api.get_user_info()
         available = electricity_points(info)
         selected = self.config_entry.options.get(CONF_DELIVERY_POINTS)
+        wanted = [raw for raw in available if selected is None or raw["id"] in selected]
+        # One access token serves parallel requests, and the portal is slow.
+        fetched = await asyncio.gather(
+            *(
+                asyncio.gather(
+                    api.get_delivery_point(raw["id"]),
+                    api.get_delivery_point_info(raw["id"]),
+                )
+                for raw in wanted
+            )
+        )
         points: dict[str, DeliveryPoint] = {}
-        for raw in available:
+        for raw, (detail, point_info) in zip(wanted, fetched, strict=True):
             point_id = raw["id"]
-            if selected is not None and point_id not in selected:
-                continue
-            detail = await api.get_delivery_point(point_id)
-            point_info = await api.get_delivery_point_info(point_id)
             points[point_id] = DeliveryPoint(
                 id=point_id,
                 eic=raw.get("eic"),
@@ -336,37 +371,42 @@ class SseEzonaCoordinator(DataUpdateCoordinator[AccountData]):
         )
 
     async def _attach_invoices(self, points: dict[str, DeliveryPoint]) -> None:
-        """Give each delivery point its latest settlement invoice."""
-        today = dt_util.now().date()
-        listing = await self.api.get_invoices(
-            COMMODITY_ELECTRICITY,
-            (today - INVOICE_LOOKBACK).isoformat(),
-            today.isoformat(),
-        )
-        settlements = [
-            item
-            for item in (listing or {}).get("invoices") or []
-            if str(item.get("type", "")).endswith("SETTLEMENT_INVOICE")
-            and item.get("id")
-        ]
-        # The listing doesn't say which delivery point an invoice is for; the
-        # detail does. Walk from the newest until every point has one.
-        settlements.sort(key=lambda item: item.get("issueDate") or "", reverse=True)
+        """Give each delivery point its latest settlement invoice.
+
+        The gateway rejects long date ranges, so look back one window at a
+        time and stop as soon as every point has an invoice.
+        """
         missing = set(points)
-        if not missing:
-            return
-        for item in settlements:
+        period_to = dt_util.now().date()
+        for _ in range(INVOICE_LOOKBACK_WINDOWS):
             if not missing:
-                break
-            invoice_id = item["id"]
-            detail = self._invoice_cache.get(invoice_id)
-            if detail is None:
-                detail = await self.api.get_invoice(invoice_id)
-                self._invoice_cache[invoice_id] = detail
-            for point_ref in detail.get("deliveryPoints") or []:
-                point_id = point_ref.get("id")
-                if point_id in missing:
-                    points[point_id].invoice = parse_invoice(
-                        invoice_id, detail, point_id
-                    )
-                    missing.discard(point_id)
+                return
+            period_from = period_to - INVOICE_LOOKBACK
+            listing = await self.api.get_invoices(
+                COMMODITY_ELECTRICITY, period_from.isoformat(), period_to.isoformat()
+            )
+            settlements = [
+                item
+                for item in (listing or {}).get("invoices") or []
+                if str(item.get("type", "")).endswith("SETTLEMENT_INVOICE")
+                and item.get("id")
+            ]
+            # The listing doesn't say which delivery point an invoice is for;
+            # the detail does. Walk from the newest.
+            settlements.sort(key=lambda item: item.get("issueDate") or "", reverse=True)
+            for item in settlements:
+                if not missing:
+                    return
+                invoice_id = item["id"]
+                detail = self._invoice_cache.get(invoice_id)
+                if detail is None:
+                    detail = await self.api.get_invoice(invoice_id)
+                    self._invoice_cache[invoice_id] = detail
+                for point_ref in detail.get("deliveryPoints") or []:
+                    point_id = point_ref.get("id")
+                    if point_id in missing:
+                        points[point_id].invoice = parse_invoice(
+                            invoice_id, detail, point_id
+                        )
+                        missing.discard(point_id)
+            period_to = period_from - timedelta(days=1)
