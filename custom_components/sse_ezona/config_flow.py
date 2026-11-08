@@ -15,8 +15,12 @@ from homeassistant.config_entries import (
 )
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import callback
+from homeassistant.data_entry_flow import section
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
@@ -32,7 +36,14 @@ from .api import (
     SseEzonaError,
     SseEzonaUnsupportedLoginError,
 )
-from .const import CONF_DELIVERY_POINTS, DOMAIN
+from .const import (
+    CONF_DELIVERY_POINTS,
+    CONF_ENERGY_AID,
+    CONF_ENERGY_AID_AMOUNT,
+    DOMAIN,
+    ENERGY_AID_AUTO,
+    ENERGY_AID_MODES,
+)
 from .coordinator import electricity_points, point_label
 
 _LOGGER = logging.getLogger(__name__)
@@ -51,6 +62,25 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     }
 )
 STEP_REAUTH_DATA_SCHEMA = vol.Schema({vol.Required(CONF_PASSWORD): PASSWORD_SELECTOR})
+
+ENERGY_AID_MODE_SELECTOR = SelectSelector(
+    SelectSelectorConfig(
+        options=list(ENERGY_AID_MODES),
+        translation_key="energy_aid_mode",
+        mode=SelectSelectorMode.DROPDOWN,
+    )
+)
+# The collapsed section holding the aid amount override.
+SECTION_ADVANCED = "advanced"
+ENERGY_AID_AMOUNT_SELECTOR = NumberSelector(
+    NumberSelectorConfig(
+        min=0,
+        max=1000,
+        step=0.01,
+        unit_of_measurement="€/MWh",
+        mode=NumberSelectorMode.BOX,
+    )
+)
 
 
 def _points_schema(available: dict[str, str], selected: list[str]) -> vol.Schema:
@@ -188,7 +218,12 @@ class SseEzonaConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class SseEzonaOptionsFlow(OptionsFlowWithReload):
-    """Change which delivery points are added."""
+    """Change which delivery points are added and whether the aid applies."""
+
+    def __init__(self) -> None:
+        """Start without a selection."""
+        self._available: dict[str, str] = {}
+        self._selected: list[str] = []
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -198,12 +233,13 @@ class SseEzonaOptionsFlow(OptionsFlowWithReload):
         coordinator = getattr(entry, "runtime_data", None)
         if coordinator is None or coordinator.data is None:
             return self.async_abort(reason="not_loaded")
-        available = coordinator.data.available
+        available = self._available = coordinator.data.available
 
         errors: dict[str, str] = {}
         if user_input is not None:
             if user_input[CONF_DELIVERY_POINTS]:
-                return self.async_create_entry(data=user_input)
+                self._selected = user_input[CONF_DELIVERY_POINTS]
+                return await self.async_step_energy_aid()
             errors["base"] = "no_selection"
 
         selected = entry.options.get(CONF_DELIVERY_POINTS, list(available))
@@ -213,4 +249,57 @@ class SseEzonaOptionsFlow(OptionsFlowWithReload):
                 available, [p for p in selected if p in available]
             ),
             errors=errors,
+        )
+
+    async def async_step_energy_aid(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose per delivery point whether the energy aid applies.
+
+        The fields are named by the points' labels, which are what the form
+        shows for a field without a translation.
+        """
+        options = self.config_entry.options
+        modes: dict[str, str] = dict(options.get(CONF_ENERGY_AID) or {})
+        labels = {
+            point_id: self._available.get(point_id, point_id)
+            for point_id in self._selected
+        }
+
+        if user_input is not None:
+            for point_id, label in labels.items():
+                modes[point_id] = user_input.get(label, ENERGY_AID_AUTO)
+            data: dict[str, Any] = {
+                CONF_DELIVERY_POINTS: self._selected,
+                CONF_ENERGY_AID: modes,
+            }
+            # An emptied field removes the override.
+            amount = (user_input.get(SECTION_ADVANCED) or {}).get(
+                CONF_ENERGY_AID_AMOUNT
+            )
+            if amount is not None:
+                data[CONF_ENERGY_AID_AMOUNT] = float(amount)
+            return self.async_create_entry(data=data)
+
+        fields: dict[Any, Any] = {
+            vol.Required(
+                label, default=modes.get(point_id, ENERGY_AID_AUTO)
+            ): ENERGY_AID_MODE_SELECTOR
+            for point_id, label in labels.items()
+        }
+        amount = options.get(CONF_ENERGY_AID_AMOUNT)
+        fields[vol.Required(SECTION_ADVANCED)] = section(
+            vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_ENERGY_AID_AMOUNT,
+                        description={"suggested_value": amount},
+                    ): ENERGY_AID_AMOUNT_SELECTOR
+                }
+            ),
+            # Open when an override is set, so it isn't forgotten.
+            {"collapsed": amount is None},
+        )
+        return self.async_show_form(
+            step_id="energy_aid", data_schema=vol.Schema(fields)
         )

@@ -10,14 +10,16 @@ eZóna has no field with the current end price. It has two halves of it:
 - the end prices on the latest settlement invoice (``endPrices``, €/kWh incl.
   VAT), which are complete but only as current as that invoice.
 
-So the end price is rebuilt as ``(supply + regulated) × (1 + VAT)``, where the
-regulated part (distribution, losses, system charges, nuclear fund) is
-``endPrice / (1 + VAT) − supply`` taken when a new invoice is first seen and
-stored. A later supply price change then shows up the next day, while the
+So the end price is rebuilt as ``(supply − aid + regulated) × (1 + VAT)``,
+where the regulated part (distribution, losses, system charges, nuclear fund)
+is ``endPrice / (1 + VAT) − supply`` taken when a new invoice is first seen
+and stored. A later supply price change then shows up the next day, while the
 regulated part follows with the next invoice.
 
-The targeted energy aid for 2026 isn't applied yet (see issue #18), so prices
-are what eZóna shows, without the aid.
+Neither half includes the targeted energy aid, which lowers the supply price
+of eligible households (``ENERGY_AID_EUR_PER_MWH``). eZóna says whether a point
+is eligible (``general.stateGrant.available``) but not by how much, so the
+amount comes from the built-in table, and the user can override both.
 """
 
 from __future__ import annotations
@@ -44,8 +46,13 @@ from .api import (
 from .const import (
     COMMODITY_ELECTRICITY,
     CONF_DELIVERY_POINTS,
+    CONF_ENERGY_AID,
+    CONF_ENERGY_AID_AMOUNT,
     DEFAULT_VAT_RATE,
     DOMAIN,
+    ENERGY_AID_AUTO,
+    ENERGY_AID_EUR_PER_MWH,
+    ENERGY_AID_ON,
     INVOICE_LOOKBACK,
     INVOICE_LOOKBACK_WINDOWS,
     MONTHLY_FEE_PRICE_NAME,
@@ -87,6 +94,10 @@ class Price:
     regulated: float
     vat_rate: float
     invoice_id: str | None
+    # The energy aid subtracted, €/MWh excl. VAT; 0 without aid.
+    energy_aid: float = 0.0
+    # The end price before the aid, incl. VAT.
+    value_without_aid: float | None = None
 
 
 @dataclass
@@ -102,6 +113,12 @@ class DeliveryPoint:
     advance_payment: float | None
     advance_frequency: str | None
     supply_prices: dict[str, float] = field(default_factory=dict)
+    # Whether eZóna lists the point as eligible for the energy aid; ``None``
+    # if it doesn't say.
+    energy_aid_eligible: bool | None = None
+    # The date of that classification ("Adresná energopomoc podľa zaradenia
+    # k"), not an expiry date.
+    energy_aid_classified_on: date | None = None
     invoice: Invoice | None = None
     prices: dict[str, Price] = field(default_factory=dict)
 
@@ -165,6 +182,42 @@ def parse_supply_prices(detail: dict[str, Any]) -> dict[str, float]:
     return prices
 
 
+def parse_energy_aid(detail: dict[str, Any]) -> tuple[bool | None, date | None]:
+    """Return eligibility for the energy aid and the classification date."""
+    grant = _value(detail, "general", "stateGrant")
+    if not isinstance(grant, dict):
+        return None, None
+    available = _value(grant, "available", "value")
+    eligible = available if isinstance(available, bool) else None
+    classified_on = None
+    valid_till = _value(grant, "validTill", "value")
+    if isinstance(valid_till, str):
+        try:
+            classified_on = datetime.strptime(valid_till.strip(), "%d.%m.%Y").date()
+        except ValueError:
+            classified_on = _date(valid_till)
+    return eligible, classified_on
+
+
+def energy_aid(
+    point: DeliveryPoint, mode: str, year: int, amount: float | None
+) -> float:
+    """Return the aid for a point in €/MWh excl. VAT, 0 if it doesn't apply.
+
+    ``mode`` is the user's choice: as eZóna says, or always on or off.
+    ``amount`` overrides the built-in amount for ``year``.
+    """
+    if mode == ENERGY_AID_AUTO:
+        applies = point.energy_aid_eligible is True
+    else:
+        applies = mode == ENERGY_AID_ON
+    if not applies:
+        return 0.0
+    if amount is not None:
+        return amount
+    return ENERGY_AID_EUR_PER_MWH.get(year, 0.0)
+
+
 def parse_invoice(invoice_id: str, detail: dict[str, Any], point_id: str) -> Invoice:
     """Return the parts of an invoice detail that concern one delivery point."""
     amount = detail.get("amount") or {}
@@ -225,7 +278,7 @@ def parse_invoice(invoice_id: str, detail: dict[str, Any], point_id: str) -> Inv
 
 
 def compute_prices(
-    point: DeliveryPoint, stored: dict[str, Any], now: datetime
+    point: DeliveryPoint, stored: dict[str, Any], now: datetime, aid: float = 0.0
 ) -> dict[str, Any]:
     """Set ``point.prices`` and return the updated stored state of the point.
 
@@ -238,6 +291,10 @@ def compute_prices(
     invoice date, so if the supply price changed between the invoice and the
     first time it is seen (e.g. on a fresh install), the regulated part
     absorbs that difference until the next invoice.
+
+    ``aid`` (€/MWh excl. VAT) is subtracted from the supply price. Neither
+    the invoice's end prices nor the supply price include it, so the
+    regulated part doesn't depend on it.
     """
     stored = dict(stored)
     regulated: dict[str, float] = dict(stored.get("regulated") or {})
@@ -262,7 +319,12 @@ def compute_prices(
         supply = point.supply_prices.get(band)
         if supply is None:
             continue
-        value = round((supply + regulated_part) * (1 + vat_rate) / 1000, PRICE_DECIMALS)
+        without_aid = round(
+            (supply + regulated_part) * (1 + vat_rate) / 1000, PRICE_DECIMALS
+        )
+        value = round(
+            (supply - aid + regulated_part) * (1 + vat_rate) / 1000, PRICE_DECIMALS
+        )
         previous = published.get(band)
         if previous is None:
             # First sighting: when this price took effect is unknown.
@@ -282,6 +344,8 @@ def compute_prices(
             regulated=regulated_part,
             vat_rate=vat_rate,
             invoice_id=stored.get("invoice_id"),
+            energy_aid=aid,
+            value_without_aid=without_aid,
         )
     stored["prices"] = published
     return stored
@@ -323,10 +387,29 @@ class SseEzonaCoordinator(DataUpdateCoordinator[AccountData]):
             raise UpdateFailed(str(err)) from err
 
         now = dt_util.utcnow()
+        options = self.config_entry.options
+        modes: dict[str, str] = options.get(CONF_ENERGY_AID) or {}
+        amount = options.get(CONF_ENERGY_AID_AMOUNT)
+        # The aid is set per calendar year.
+        year = dt_util.as_local(now).year
         points_state = self._stored.setdefault("delivery_points", {})
         for point in data.delivery_points.values():
+            mode = modes.get(point.id, ENERGY_AID_AUTO)
+            aid = energy_aid(point, mode, year, amount)
+            if (
+                mode == ENERGY_AID_AUTO
+                and point.energy_aid_eligible
+                and amount is None
+                and year not in ENERGY_AID_EUR_PER_MWH
+            ):
+                _LOGGER.warning(
+                    "A delivery point is eligible for the energy aid, but its "
+                    "amount for %s isn't known; prices are without the aid. "
+                    "Set the amount in the integration's options",
+                    year,
+                )
             points_state[point.id] = compute_prices(
-                point, points_state.get(point.id, {}), now
+                point, points_state.get(point.id, {}), now, aid
             )
         await self._store.async_save(self._stored)
         return data
@@ -363,6 +446,10 @@ class SseEzonaCoordinator(DataUpdateCoordinator[AccountData]):
                 advance_frequency=_value(point_info, "advancedPayment", "frequency"),
                 supply_prices=parse_supply_prices(detail),
             )
+            (
+                points[point_id].energy_aid_eligible,
+                points[point_id].energy_aid_classified_on,
+            ) = parse_energy_aid(detail)
 
         await self._attach_invoices(points)
         return AccountData(

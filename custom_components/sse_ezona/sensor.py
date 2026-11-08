@@ -103,15 +103,37 @@ def _price_description(band: str) -> PointSensorDescription:
 
     def attrs(point: DeliveryPoint) -> dict[str, Any]:
         price = point.prices.get(band)
+        classified_on = point.energy_aid_classified_on
+        aid = {
+            # What eZóna says; the options can override it.
+            "energy_aid_eligible": point.energy_aid_eligible,
+            "energy_aid_classified_on": (
+                classified_on.isoformat() if classified_on else None
+            ),
+        }
         if price is None:
-            return dict.fromkeys(
-                ("valid_from", "supply_price", "regulated_price", "vat_rate")
-            )
+            return {
+                **dict.fromkeys(
+                    (
+                        "valid_from",
+                        "supply_price",
+                        "regulated_price",
+                        "vat_rate",
+                        "energy_aid",
+                        "price_without_aid",
+                    )
+                ),
+                **aid,
+            }
         return {
             "valid_from": price.valid_from.isoformat() if price.valid_from else None,
             "supply_price": round(price.supply, 4),
             "regulated_price": round(price.regulated, 4),
             "vat_rate": price.vat_rate,
+            # €/MWh excl. VAT, subtracted from the supply price.
+            "energy_aid": price.energy_aid,
+            "price_without_aid": price.value_without_aid,
+            **aid,
         }
 
     return PointSensorDescription(

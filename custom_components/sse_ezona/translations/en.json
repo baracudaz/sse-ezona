@@ -78,6 +78,21 @@
         "data": {
           "delivery_points": "Delivery points"
         }
+      },
+      "energy_aid": {
+        "title": "Energy aid",
+        "description": "For each delivery point, choose whether the targeted energy aid (adresná energopomoc) is subtracted from its prices. The prices in eZóna don't include it. Automatic follows \"Nárok na adresnú energopomoc\" in eZóna.",
+        "sections": {
+          "advanced": {
+            "name": "Advanced",
+            "data": {
+              "energy_aid_amount": "Aid amount (€/MWh excl. VAT)"
+            },
+            "data_description": {
+              "energy_aid_amount": "Leave empty to use the amount set by law for the current year (31.24 €/MWh in 2026)."
+            }
+          }
+        }
       }
     },
     "error": {
@@ -85,6 +100,15 @@
     },
     "abort": {
       "not_loaded": "The integration isn't loaded. Fix the problem shown for it first."
+    }
+  },
+  "selector": {
+    "energy_aid_mode": {
+      "options": {
+        "auto": "Automatic (as in eZóna)",
+        "on": "Apply",
+        "off": "Don't apply"
+      }
     }
   }
 }

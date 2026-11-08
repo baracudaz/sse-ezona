@@ -18,7 +18,7 @@
       },
       "delivery_points": {
         "title": "Odberné miesta",
-        "description": "Vyberte odberné miesta, ktoré chcete pridať. Výber môžete neskôr zmeniť v možnostiach integrácie.",
+        "description": "Vyberte odberné miesta, ktoré chcete pridať. Výber môžete neskôr zmeniť tlačidlom „Konfigurovať“ pri vašom účte.",
         "data": {
           "delivery_points": "Odberné miesta"
         }
@@ -74,9 +74,24 @@
     "step": {
       "init": {
         "title": "Odberné miesta",
-        "description": "Vyberte odberné miesta, ktoré chcete pridať. Výber môžete neskôr zmeniť v možnostiach integrácie.",
+        "description": "Vyberte odberné miesta, ktoré chcete pridať. Výber môžete neskôr zmeniť tlačidlom „Konfigurovať“ pri vašom účte.",
         "data": {
           "delivery_points": "Odberné miesta"
+        }
+      },
+      "energy_aid": {
+        "title": "Energopomoc",
+        "description": "Pre každé odberné miesto vyberte, či sa od jeho cien odpočíta adresná energopomoc. Ceny v eZóne ju nezahŕňajú. Automaticky sa riadi údajom „Nárok na adresnú energopomoc“ v eZóne.",
+        "sections": {
+          "advanced": {
+            "name": "Rozšírené",
+            "data": {
+              "energy_aid_amount": "Výška energopomoci (€/MWh bez DPH)"
+            },
+            "data_description": {
+              "energy_aid_amount": "Ak pole necháte prázdne, použije sa výška podľa zákona pre aktuálny rok (v roku 2026 31,24 €/MWh)."
+            }
+          }
         }
       }
     },
@@ -85,6 +100,15 @@
     },
     "abort": {
       "not_loaded": "Integrácia nie je načítaná. Najprv vyriešte problém, ktorý pri nej Home Assistant zobrazuje."
+    }
+  },
+  "selector": {
+    "energy_aid_mode": {
+      "options": {
+        "auto": "Automaticky (podľa eZóny)",
+        "on": "Uplatniť",
+        "off": "Neuplatniť"
+      }
     }
   }
 }
