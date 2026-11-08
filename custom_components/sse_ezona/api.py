@@ -18,9 +18,11 @@ disruption short.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import secrets
+import ssl
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -42,6 +44,21 @@ RESPONSE_TYPE = "token"
 REDIRECT_URI = "/"
 
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=30)
+WEB_ORIGIN = "https://ezona.sse.sk"
+USER_AGENT = "Mozilla/5.0"
+
+
+def _create_ssl_context() -> ssl.SSLContext:
+    """Return a TLS 1.2 context for the eZóna gateway.
+
+    The gateway rejects the TLS 1.3 handshake of recent Python versions;
+    TLS 1.2 works. Certificate and hostname verification stay on. Loading the
+    CA store does file I/O, so call this in an executor.
+    """
+    context = ssl.create_default_context()
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.maximum_version = ssl.TLSVersion.TLSv1_2
+    return context
 
 
 class SseEzonaError(Exception):
@@ -50,6 +67,10 @@ class SseEzonaError(Exception):
 
 class SseEzonaConnectionError(SseEzonaError):
     """The portal couldn't be reached or answered unexpectedly."""
+
+
+class SseEzonaGatewayRejectedError(SseEzonaConnectionError):
+    """The portal's web application firewall answered with its rejection page."""
 
 
 class SseEzonaAuthError(SseEzonaError):
@@ -72,6 +93,7 @@ class SseEzonaApi:
         self._password = password
         self._token: str | None = None
         self._token_type = "Bearer"
+        self._ssl_context: ssl.SSLContext | None = None
 
     @property
     def logged_in(self) -> bool:
@@ -84,7 +106,10 @@ class SseEzonaApi:
             "Accept": "application/json;charset=UTF-8",
             "Accept-Language": "sk",
             "Content-Type": "application/json",
+            "Origin": WEB_ORIGIN,
+            "Referer": f"{WEB_ORIGIN}/",
             "Requestid": uuid.uuid4().hex,
+            "User-Agent": USER_AGENT,
         }
 
     async def _request(
@@ -96,6 +121,8 @@ class SseEzonaApi:
         params: dict[str, str] | None = None,
         auth: bool = True,
     ) -> Any:
+        if self._ssl_context is None:
+            self._ssl_context = await asyncio.to_thread(_create_ssl_context)
         headers = self._headers()
         if auth:
             if self._token is None:
@@ -109,15 +136,27 @@ class SseEzonaApi:
                 params=params,
                 headers=headers,
                 timeout=REQUEST_TIMEOUT,
+                ssl=self._ssl_context,
+                allow_redirects=False,
             ) as resp:
+                body = await resp.text()
+                # The firewall's rejection page comes with HTTP 200 (or 403) and
+                # says nothing about the credentials, so check it first. Long
+                # date ranges trigger it too.
+                if (
+                    "html" in resp.headers.get("Content-Type", "")
+                    and "request rejected" in body[:2000].lower()
+                ):
+                    raise SseEzonaGatewayRejectedError(
+                        "Request rejected by the gateway"
+                    )
                 if resp.status in (401, 403):
                     raise SseEzonaAuthError(f"HTTP {resp.status}")
                 if resp.status == 400 and not auth:
                     # The login endpoints answer rejected credentials with 400.
                     raise SseEzonaAuthError("HTTP 400")
-                if resp.status >= 400:
+                if resp.status >= 300:
                     raise SseEzonaConnectionError(f"HTTP {resp.status}")
-                body = await resp.text()
         except (aiohttp.ClientError, TimeoutError) as err:
             raise SseEzonaConnectionError(type(err).__name__) from err
         if not body:

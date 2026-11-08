@@ -14,6 +14,7 @@ from custom_components.sse_ezona.api import (
     SseEzonaApi,
     SseEzonaAuthError,
     SseEzonaConnectionError,
+    SseEzonaGatewayRejectedError,
     SseEzonaUnsupportedLoginError,
 )
 
@@ -137,3 +138,18 @@ async def test_expired_session(
     await api.login()
     with pytest.raises(SseEzonaAuthError):
         await api.get_balance("ELECTRICITY")
+
+
+async def test_gateway_rejection_page(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """The firewall's HTML rejection page is a connection error, not bad auth."""
+    aioclient_mock.post(
+        START_URL,
+        text="<html><head><title>Request Rejected</title></head></html>",
+        headers={"Content-Type": "text/html"},
+    )
+
+    api = SseEzonaApi(async_get_clientsession(hass), "user@example.com", "pw")
+    with pytest.raises(SseEzonaGatewayRejectedError):
+        await api.login()
