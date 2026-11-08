@@ -10,7 +10,11 @@ from homeassistant.util import dt as dt_util
 from pytest_homeassistant.common import MockConfigEntry, async_fire_time_changed
 
 from custom_components.sse_ezona.api import SseEzonaAuthError, SseEzonaConnectionError
-from custom_components.sse_ezona.const import CONF_DELIVERY_POINTS, DOMAIN
+from custom_components.sse_ezona.const import (
+    CONF_DELIVERY_POINTS,
+    CONF_ENERGY_AID,
+    DOMAIN,
+)
 
 from .common import (
     INVOICE_SINGLE_RATE,
@@ -186,9 +190,21 @@ async def test_options_change_the_selection(
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {CONF_DELIVERY_POINTS: [POINT_SINGLE_RATE]}
     )
+    # The energy aid step lists only the chosen point.
+    assert result["step_id"] == "energy_aid"
+    assert [str(key) for key in result["data_schema"].schema] == [
+        "Chata (24ZSS0000000002B)",
+        "advanced",
+    ]
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"advanced": {}}
+    )
     await hass.async_block_till_done()
 
-    assert config_entry.options == {CONF_DELIVERY_POINTS: [POINT_SINGLE_RATE]}
+    assert config_entry.options == {
+        CONF_DELIVERY_POINTS: [POINT_SINGLE_RATE],
+        CONF_ENERGY_AID: {POINT_SINGLE_RATE: "auto"},
+    }
     assert config_entry.state is ConfigEntryState.LOADED
     assert not er.async_get(hass).async_get_entity_id(
         "sensor", DOMAIN, f"{POINT_TWO_RATE}_price_vt"

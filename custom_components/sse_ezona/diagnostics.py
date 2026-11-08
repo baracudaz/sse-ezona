@@ -15,6 +15,7 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 
 from . import SseEzonaConfigEntry
+from .const import CONF_DELIVERY_POINTS, CONF_ENERGY_AID
 
 TO_REDACT = [CONF_USERNAME, CONF_PASSWORD]
 
@@ -37,14 +38,25 @@ async def async_get_config_entry_diagnostics(
             "advance_payment": point.advance_payment,
             "advance_frequency": point.advance_frequency,
             "supply_prices": point.supply_prices,
+            "energy_aid_eligible": point.energy_aid_eligible,
+            "energy_aid_classified_on": point.energy_aid_classified_on,
             "invoice": invoice,
             "prices": {
                 band: {k: v for k, v in asdict(price).items() if k != "invoice_id"}
                 for band, price in point.prices.items()
             },
         }
+    options = dict(entry.options)
+    # Keyed by delivery point ID; keep only the choices, in the same order.
+    options.pop(CONF_DELIVERY_POINTS, None)
+    if CONF_ENERGY_AID in options:
+        modes = options[CONF_ENERGY_AID]
+        options[CONF_ENERGY_AID] = [
+            modes.get(point_id) for point_id in (data.delivery_points if data else ())
+        ]
     return {
         "entry_data": async_redact_data(dict(entry.data), TO_REDACT),
+        "options": options,
         "last_update_success": coordinator.last_update_success,
         "delivery_points_available": len(data.available) if data else None,
         "delivery_points": points,

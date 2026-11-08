@@ -40,7 +40,7 @@ def _detail(prices: list[tuple[str, float]], product: str) -> dict[str, Any]:
     return {
         "general": {
             "stateGrant": {
-                "available": {"value": True},
+                "available": {"value": False},
                 "validTill": {"value": "01.09.2026"},
             }
         },

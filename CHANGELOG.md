@@ -1,5 +1,11 @@
 # Changelog
 
+## Version 0.3.0
+
+- **New feature**: Prices include the 2026 targeted energy aid (31.24 €/MWh excl. VAT) for eligible delivery points. Eligibility comes from eZóna's `stateGrant.available` and can be set per point in the options; the amount can be overridden there too. New price attributes `energy_aid`, `price_without_aid`, `energy_aid_eligible` and `energy_aid_classified_on` (#18)
+- **Maintenance**: Ruff 0.17, which formats Markdown too, skips the Copilot guide
+- **Docs**: Slovak README explains the energy aid and the options
+
 ## Version 0.2.0
 
 - **New feature**: Sensors per electricity delivery point: end prices VT/NT or JT (EUR/kWh incl. VAT, with `valid_from`), monthly fee, amount due, advance payment, tariff, and total, balance and due date of the latest settlement invoice (#1). Prices don't include the 2026 energy aid yet (#18)
