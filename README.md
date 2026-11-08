@@ -16,6 +16,7 @@ Každé vybrané odberné miesto elektriny je v Home Assistante samostatné zari
 - **Výška zálohy**: atribút `frequency` hovorí, ako často sa platí
 - **Sadzba** (napr. `DD5`)
 - **Posledná faktúra**: celková suma s DPH, nedoplatok/preplatok (preplatok je záporný) a dátum splatnosti
+- **Fakturovaná spotreba VT a NT** (kWh), pri jednotarifnej sadzbe **Fakturovaná spotreba JT**: spotreba za posledné zúčtovacie obdobie; atribúty `period_from` a `period_to` udávajú obdobie. Slúži na porovnanie s odpočtami elektromera, napríklad zo [SSD IMS](https://github.com/baracudaz/ssd-ims). Nejde o meranie, preto sa nezobrazuje v paneli **Energie**.
 
 Údaje sa načítavajú raz denne.
 
