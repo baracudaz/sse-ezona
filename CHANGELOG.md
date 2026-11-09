@@ -1,5 +1,9 @@
 # Changelog
 
+## Version 0.4.1
+
+- **Bug fix**: A delivery point missing from one eZóna response no longer loses its device, history, name and area; devices are only removed when the point is deselected in the options
+
 ## Version 0.4.0
 
 - **New feature**: Billed consumption VT/NT or JT (kWh) of the latest settlement period per delivery point, with the period as attributes, for comparing with meter register readings (#16)
