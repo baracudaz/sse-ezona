@@ -177,6 +177,37 @@ async def test_only_selected_points_are_added(
     )
 
 
+async def test_point_missing_from_portal_keeps_its_device(
+    hass: HomeAssistant, config_entry: MockConfigEntry, fake_api: FakeApi
+) -> None:
+    """A selected point the portal leaves out once isn't deleted."""
+    hass.config_entries.async_update_entry(
+        config_entry,
+        options={CONF_DELIVERY_POINTS: [POINT_TWO_RATE, POINT_SINGLE_RATE]},
+    )
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    devices = dr.async_get(hass)
+    device = devices.async_get_device_by_identifier(
+        (DOMAIN, POINT_SINGLE_RATE), config_entry.entry_id
+    )
+    devices.async_update_device(device.id, name_by_user="Renamed")
+
+    fake_api.user_info["deliveryPoints"] = [
+        raw
+        for raw in fake_api.user_info["deliveryPoints"]
+        if raw["id"] != POINT_SINGLE_RATE
+    ]
+    await hass.config_entries.async_reload(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    kept = devices.async_get_device_by_identifier(
+        (DOMAIN, POINT_SINGLE_RATE), config_entry.entry_id
+    )
+    assert kept is not None
+    assert kept.id == device.id
+    assert kept.name_by_user == "Renamed"
+
+
 async def test_options_change_the_selection(
     hass: HomeAssistant, config_entry: MockConfigEntry, fake_api: FakeApi
 ) -> None:
