@@ -209,6 +209,7 @@ class FakeApi:
         self.fail: Exception | None = None
         self.invoice_requests: list[str] = []
         self.consumption = copy.deepcopy(CONSUMPTION)
+        self.user_info = copy.deepcopy(USER_INFO)
         self.consumption_fail: Exception | None = None
         self.logins = 0
 
@@ -220,7 +221,7 @@ class FakeApi:
         yield self
 
     async def get_user_info(self) -> dict[str, Any]:
-        return copy.deepcopy(USER_INFO)
+        return copy.deepcopy(self.user_info)
 
     async def get_delivery_point(self, point_id: str) -> dict[str, Any]:
         return copy.deepcopy(self.details[point_id])
