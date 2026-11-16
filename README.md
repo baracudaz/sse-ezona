@@ -69,7 +69,9 @@ Majte na pamäti:
 
 ## Inštalácia
 
-### Spôsob 1: Marketplace (odporúčané, Home Assistant 2026.11 a novší)
+Integrácia vyžaduje Home Assistant 2026.11 alebo novší.
+
+### Spôsob 1: Marketplace (odporúčané)
 
 Od verzie 2026.11 je HACS súčasťou Home Assistantu ako **Marketplace**. Integrácia je v jeho predvolenom katalógu:
 
@@ -78,17 +80,11 @@ Od verzie 2026.11 je HACS súčasťou Home Assistantu ako **Marketplace**. Integ
 3. Zvoľte **Inštalovať**, skontrolujte verziu a znova zvoľte **Inštalovať**
 4. Hneď sa otvorí nastavenie integrácie; ak Home Assistant potrebuje najprv reštart, ponúkne ho v časti **Opravy**
 
+Ak integráciu v katalógu nenájdete, zvoľte **Pridať z odkazu** a zadajte `https://github.com/baracudaz/sse-ezona` (vyžaduje pripojenie k GitHubu).
+
 Ak ste integráciu nainštalovali cez HACS pred verziou 2026.11, nemusíte nič robiť: Marketplace prevezme správu od HACS a aktualizácie nájdete v časti **Nastavenia** → **Aktualizácie**.
 
-### Spôsob 2: HACS (Home Assistant starší ako 2026.11)
-
-1. Otvorte HACS a vyhľadajte „Stredoslovenská energetika (SSE eZóna)“
-2. Zvoľte „Download“
-3. Reštartujte Home Assistant
-
-Ak integráciu v katalógu nenájdete, môžete ju pridať priamo z GitHubu: v Marketplace cez **Pridať z odkazu**, v staršom HACS v ponuke (⋮) cez „Custom repositories“ s kategóriou „Integration“. Zadajte `https://github.com/baracudaz/sse-ezona`.
-
-### Spôsob 3: Ručná inštalácia
+### Spôsob 2: Ručná inštalácia
 
 1. Stiahnite tento repozitár
 2. Skopírujte priečinok `custom_components/sse_ezona` do priečinka `config/custom_components/` vo vašom Home Assistante
