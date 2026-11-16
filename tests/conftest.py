@@ -8,6 +8,7 @@ from collections.abc import Iterator
 from unittest.mock import patch
 
 import pytest
+from freezegun.api import FrozenDateTimeFactory
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant.common import MockConfigEntry
@@ -20,6 +21,16 @@ from .common import FakeApi
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
     """Let Home Assistant load the integration from custom_components."""
+
+
+@pytest.fixture(autouse=True)
+def fixed_today(freezer: FrozenDateTimeFactory) -> None:
+    """Run every test on the same day, so the made-up invoice dates don't age.
+
+    The integration searches invoices backwards from today, so without this a
+    test's outcome would change as the calendar moves on.
+    """
+    freezer.move_to("2026-06-15 10:00:00+02:00")
 
 
 @pytest.fixture
