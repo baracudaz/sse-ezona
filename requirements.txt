@@ -1,6 +1,6 @@
 # Direct project dependencies (simplified)
 colorlog==6.12.0
-hassil==3.12.1
+hassil==3.13.0
 homeassistant==2026.11.0
 pydantic==2.14.3
 pytest==9.0.3
